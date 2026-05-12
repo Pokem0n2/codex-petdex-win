@@ -1,8 +1,7 @@
 # codex-petdex-win
 
 A lightweight Windows desktop virtual pet application built with pure Win32 API and WIC (Windows Imaging Component).
-
-
+<img width="855" height="555" alt="pet" src="https://github.com/user-attachments/assets/2909107b-564d-447c-bc6a-3cc02fdf2ffb" />
 
 ## Features
 
