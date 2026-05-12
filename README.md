@@ -60,3 +60,9 @@ codex-petdex-win/
 
 - Windows 10/11
 - MinGW-w64 (for building)
+
+## Usage
+
+1. Visit https://petdex.crafter.run/ to download the sprite pack for your favorite character.
+2. Extract the pack and place the folder into a `my` directory located in the same folder as the exe.
+3. Run the exe, select your favorite character, and enjoy!
