@@ -2,6 +2,8 @@
 
 A lightweight Windows desktop virtual pet application built with pure Win32 API and WIC (Windows Imaging Component).
 
+
+
 ## Features
 
 - Ultra-compact executable (< 200KB)
