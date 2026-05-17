@@ -74,7 +74,6 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
         case WM_NCHITTEST: {
             POINT pt = {LOWORD(lp), HIWORD(lp)};
-            ScreenToClient(hwnd, &pt);
             RECT rc;
             GetClientRect(hwnd, &rc);
             if (PtInRect(&rc, pt)) return HTCAPTION;
@@ -126,12 +125,15 @@ HWND create_layered_window(Pet *pet, PetInfo *pet_list, int pet_count, int initi
     int screen_w = GetSystemMetrics(SM_CXSCREEN);
     int screen_h = GetSystemMetrics(SM_CYSCREEN);
 
+    RECT wr = {0, 0, f->width, f->height};
+    AdjustWindowRect(&wr, WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX, FALSE);
+
     HWND hwnd = CreateWindowExW(
         WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TRANSPARENT,
         L"DigitPetClass", L"Digit Pet",
-        WS_POPUP,
-        screen_w - f->width, screen_h - f->height - 40,
-        f->width, f->height,
+        WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX,
+        screen_w - wr.right, screen_h - wr.bottom - 40,
+        wr.right, wr.bottom,
         NULL, NULL, g_hinst, NULL
     );
 
