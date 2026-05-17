@@ -12,6 +12,13 @@ static int g_pet_count = 0;
 static PetInfo *g_pet_list = NULL;
 static HWND g_hwnd = NULL;
 
+// Drag tracking
+static int g_is_dragging = 0;
+static int g_drag_start_x = 0;
+static int g_drag_start_y = 0;
+static int g_window_start_x = 0;
+static int g_window_start_y = 0;
+
 static void build_sprite_path(wchar_t *out, const wchar_t *base, const char *pet_name, int is_png) {
     wchar_t wname[128];
     MultiByteToWideChar(CP_ACP, 0, pet_name, -1, wname, 128);
@@ -40,8 +47,11 @@ static void reload_pet_window(void) {
     if (!load_spritesheet(g_pet, path)) return;
 
     Frame *f = &g_pet->states[STATE_IDLE].frames[0];
-    int win_w = f->width;
-    int win_h = f->height;
+
+    RECT wr = {0, 0, f->width, f->height};
+    AdjustWindowRect(&wr, WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX, FALSE);
+    int win_w = wr.right - wr.left;
+    int win_h = wr.bottom - wr.top;
 
     RECT rc;
     GetWindowRect(g_hwnd, &rc);
@@ -67,17 +77,65 @@ static LRESULT CALLBACK wnd_proc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             }
             return 0;
 
-        case WM_LBUTTONDOWN:
-            set_state(g_pet, (g_pet->current_state + 1) % STATE_COUNT);
-            render_frame(hwnd, g_pet);
-            return 0;
-
-        case WM_NCHITTEST: {
+        case WM_LBUTTONDOWN: {
+            // Start dragging from title bar area
             POINT pt = {LOWORD(lp), HIWORD(lp)};
-            RECT rc;
-            GetClientRect(hwnd, &rc);
-            if (PtInRect(&rc, pt)) return HTCAPTION;
-            return HTCLIENT;
+            RECT wr;
+            GetWindowRect(hwnd, &wr);
+            // Check if in title bar area (top portion of window)
+            int title_bar_height = (wr.bottom - wr.top) - 208; // 208 is the pet content height
+            if (title_bar_height < 20) title_bar_height = 30; // minimum title bar
+
+            // Convert client coords to screen for comparison
+            POINT pt_screen = pt;
+            ClientToScreen(hwnd, &pt_screen);
+
+            if (pt_screen.y < wr.top + title_bar_height) {
+                // In title bar area - start drag
+                g_is_dragging = 1;
+                g_drag_start_x = pt_screen.x;
+                g_drag_start_y = pt_screen.y;
+                g_window_start_x = wr.left;
+                g_window_start_y = wr.top;
+                SetCapture(hwnd);
+            } else {
+                // In pet content area - change animation state
+                set_state(g_pet, (g_pet->current_state + 1) % STATE_COUNT);
+                render_frame(hwnd, g_pet);
+            }
+            return 0;
+        }
+
+        case WM_MOUSEMOVE: {
+            if (g_is_dragging) {
+                POINT pt;
+                GetCursorPos(&pt);
+                int new_x = g_window_start_x + (pt.x - g_drag_start_x);
+                int new_y = g_window_start_y + (pt.y - g_drag_start_y);
+
+                // Clamp to screen
+                int screen_w = GetSystemMetrics(SM_CXSCREEN);
+                int screen_h = GetSystemMetrics(SM_CYSCREEN);
+                RECT rc;
+                GetWindowRect(hwnd, &rc);
+                int win_w = rc.right - rc.left;
+                int win_h = rc.bottom - rc.top;
+                if (new_x < 0) new_x = 0;
+                if (new_x + win_w > screen_w) new_x = screen_w - win_w;
+                if (new_y < 0) new_y = 0;
+                if (new_y + win_h > screen_h) new_y = screen_h - win_h;
+
+                SetWindowPos(hwnd, NULL, new_x, new_y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+            }
+            return 0;
+        }
+
+        case WM_LBUTTONUP: {
+            if (g_is_dragging) {
+                g_is_dragging = 0;
+                ReleaseCapture();
+            }
+            return 0;
         }
 
         case WM_KEYDOWN: {
@@ -112,6 +170,7 @@ HWND create_layered_window(Pet *pet, PetInfo *pet_list, int pet_count, int initi
     g_current_pet_idx = initial_idx;
     g_pet = pet;
     g_hwnd = NULL;
+    g_is_dragging = 0;
 
     WNDCLASSEXW wc = {0};
     wc.cbSize = sizeof(wc);
@@ -127,13 +186,15 @@ HWND create_layered_window(Pet *pet, PetInfo *pet_list, int pet_count, int initi
 
     RECT wr = {0, 0, f->width, f->height};
     AdjustWindowRect(&wr, WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX, FALSE);
+    int win_w = wr.right - wr.left;
+    int win_h = wr.bottom - wr.top;
 
     HWND hwnd = CreateWindowExW(
-        WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TRANSPARENT,
+        WS_EX_LAYERED | WS_EX_TOPMOST,
         L"DigitPetClass", L"Digit Pet",
         WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX,
-        screen_w - wr.right, screen_h - wr.bottom - 40,
-        wr.right, wr.bottom,
+        screen_w - win_w, screen_h - win_h - 40,
+        win_w, win_h,
         NULL, NULL, g_hinst, NULL
     );
 

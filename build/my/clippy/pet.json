@@ -1,0 +1,6 @@
+{
+  "id": "clippy",
+  "displayName": "Clippy",
+  "description": "A cute paperclip helper with big expressive eyes.",
+  "spritesheetPath": "spritesheet.webp"
+}
